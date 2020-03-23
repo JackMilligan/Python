@@ -1,0 +1,2195 @@
+"""
+Version 12.
+Jack Milligan.
+
+ Notes / To do:
+ - Add variables and init parameters into docstrings.
+ - Add :keyword: for all of the class names and important terms, e.g. schedule_interval, into this docstring.
+ - Tidy the if __name__ == "__main__".
+ - Reduce the button code, or at least make it better.
+ - Contents of line numbers for each class.
+ - Change leg placement from the time thing to the mover class.
+ - Switch store to being location based, moving away closes the store.
+ - Make store appear randomly, travelling trader.
+ - Show notification for level up.
+ - Show prompt to access help menu, remove when accessing pause menu for the first time.
+ - Differentiate each area in terms of colour design or terrain to allow the user to be aware of where they are in the
+ game (think about how video games do this by having an ice area, and then a desert for example). Easily done by just
+ creating directional copies and then changing the tiles slightly. Also make areas more interesting, and add a tag that
+ shows the current area based upon the grid system.
+ - Create more enemy sprites.
+ - Minimap, add grid showing the co-ordinates of each box, with a label next to it that shows the current area's ID.
+ - Switch attacks to left and right click, and make potions the E button.
+ - Allow autosave to be disabled.
+
+ Bugs to address:
+ - New scene does not refresh animation.
+ - Defeating enemies in the original can create non-interactable enemies.
+ - Make save file store xp cap.
+"""
+
+# Importing pyglet to use its ability to create windows, importing cocos as the main module as it builds upon
+# python. Math is imported for rotation calculations.
+import cocos
+from pyglet.window import mouse
+from cocos import mapcolliders
+from cocos.scenes import *
+import math
+import cocos.collision_model as cm
+import cocos.euclid as eu
+from cocos.layer import *
+import random
+
+
+class Player:
+    """
+    Player class defines the basic player attributes along with functions that can edit these easily.
+
+    __init__ parameters -
+        p_name : Defines the player name.
+        p_age : Defines the player age.
+        p_gender : Defines the player gender.
+        speed : Modifies the movement speed of the player.
+        intelligence : Modifies the current intelligence of the player, used for magic damage.
+        strength : Modifies the current strength of the player, used for physical damage.
+        health : Stores the current health of the player.
+        max_health : Stores the amount of health they can regenerate up to.
+        gold : Stores the current amount of money the player has.
+    """
+    inventory = []
+    equipped = {"Head": "None", "Chest": "None", "Shield": "None", "Sword": "None"}
+    exp = 0
+    level = 1
+    allocatable_points = 0
+    hidden_inventory = []
+    hidden_equipped = {"Head": 1, "Chest": 1, "Shield": 1, "Sword": 1}
+
+    def __init__(self, p_name, p_age, p_gender, speed, intelligence, strength, health,
+                 max_health, gold, mana, max_mana):
+        self.p_name = p_name
+        self.p_age = p_age
+        self.p_gender = p_gender
+        self.speed = speed
+        self.intelligence = intelligence
+        self.strength = strength
+        self.health = health
+        self.max_health = max_health
+        self.gold = gold
+        self.mana = mana
+        self.max_mana = max_mana
+
+    # Functions to modify stats outside of the class.
+
+    def increase_speed(self, inc_by):
+        """
+        Can be used to increase the referenced attribute of the player by the parameter.
+        :param inc_by: Parameter that is added onto the referenced attribute.
+        """
+        self.speed += inc_by
+
+    def decrease_speed(self, dec_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param dec_by: Parameter that is added onto the referenced attribute.
+        """
+        self.speed -= dec_by
+
+    def set_speed(self, set_to):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param set_to: Parameter that is added onto the referenced attribute.
+        """
+        self.speed = set_to
+
+    def increase_intel(self, inc_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param inc_by: Parameter that is added onto the referenced attribute.
+        """
+        self.intelligence += inc_by
+
+    def decrease_intel(self, dec_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param dec_by: Parameter that is added onto the referenced attribute.
+        """
+        self.intelligence -= dec_by
+
+    def set_intel(self, set_to):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param set_to: Parameter that is added onto the referenced attribute.
+        """
+        self.intelligence = set_to
+
+    def increase_strength(self, inc_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param inc_by: Parameter that is added onto the referenced attribute.
+        """
+        self.strength += inc_by
+
+    def decrease_strength(self, dec_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param dec_by: Parameter that is added onto the referenced attribute.
+        """
+        self.strength -= dec_by
+
+    def set_strength(self, set_to):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param set_to: Parameter that is added onto the referenced attribute.
+        """
+        self.strength = set_to
+
+    def increase_health(self, inc_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param inc_by: Parameter that is added onto the referenced attribute.
+        """
+        self.health += inc_by
+
+    def decrease_health(self, dec_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param dec_by: Parameter that is added onto the referenced attribute.
+        """
+        self.health -= dec_by
+
+    def set_health(self, set_to):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param set_to: Parameter that is added onto the referenced attribute.
+        """
+        self.health = set_to
+
+    def increase_max(self, inc_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param inc_by: Parameter that is added onto the referenced attribute.
+        """
+        self.max_health += inc_by
+
+    def decrease_max(self, dec_by):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param dec_by: Parameter that is added onto the referenced attribute.
+        """
+        self.max_health -= dec_by
+
+    def set_max(self, set_to):
+        """
+        Can be used to increase the speed of the player by the parameter.
+        :param set_to: Parameter that is added onto the referenced attribute.
+        """
+        self.max_health = set_to
+
+    def equip(self, edit):
+        """
+        Applies the attributes for the equipped item to the player.
+        :param edit: Refers to the item that is being equipped.
+        """
+        self.max_health += edit.max_h
+        self.strength += edit.strength
+        self.speed += edit.speed
+        self.intelligence += edit.intelligence
+
+    def unequip(self, edit):
+        """
+        Applies the attributes for the unequipped item to the player.
+        :param edit: Refers to the item that is being unequipped
+        """
+        self.max_health -= edit.max_h
+        self.strength -= edit.strength
+        self.speed -= edit.speed
+        self.intelligence -= edit.intelligence
+
+
+# Basic player attributes, will be edited later when there is more customisation.
+player_one = Player("", "", "", 100, 1, 1, 100, 100, 0, 100, 100)
+
+
+class Monster:
+    """
+    Monster class that can be used to create instances of enemies, it contains their basic parameters.
+
+    __init__ parameters -
+        name : Stores the current name of the enemy.
+        desc : Stores a description of what the enemy is.
+        speed : Modifies how fast the enemy moves.
+        intelligence : Modifies the magic damage of the enemy.
+        strength : Modifies the physical damage of the enemy.
+        max_health : Modifies the max health of the enemy.
+        health : Stores the current health of the enemy.
+        level : Stores the current level of the enemy.
+        give_exp : Stores how much exp is given to the player.
+        give_gold : Stores how much gold is given to the player.
+    """
+
+    def __init__(self, name, desc, speed, intelligence, strength, max_health, health, level, give_exp, give_gold):
+        self.name = name
+        self.desc = desc
+        self.speed = speed
+        self.intelligence = intelligence
+        self.strength = strength
+        self.max_health = max_health
+        self.health = health
+        self.level = level
+        self.give_exp = give_exp
+        self.give_gold = give_gold
+
+    # Attack player functions
+
+    def phys_attack(self):
+        """
+        Allows enemy to do strength based attacks.
+        """
+        player_one.decrease_health(self.strength)
+
+    def mag_attack(self):
+        """
+        Allows enemy to do intelligence based attacks
+        """
+        player_one.decrease_health(self.intelligence)
+
+    # Player attacks enemy functions
+    def get_hit(self):
+        """
+        Allows player to do strength based attacks.
+        """
+        self.health -= player_one.strength
+
+    def get_hit_mag(self):
+        """
+        Allows player to do intelligence based attacks.
+        """
+        self.health -= player_one.intelligence
+
+    # Defend function
+    def defend(self):
+        """
+        Allows enemy to defend against strength attacks, will unlikely be used due to changes in combat type.
+        """
+        self.health -= player_one.strength / 10
+
+    def defend_mag(self):
+        """
+        Allows enemy to defend against intelligence attacks, will unlikely be used due to changes in combat type.
+        """
+        self.health -= player_one.intelligence / 10
+
+
+class Item:
+    """
+    Defines items so that they can be added to the player inventory.
+    """
+
+    def __init__(self, name, max_h, speed, strength, intelligence, cost, armour_type, level_requirement):
+        self.speed = speed
+        self.max_h = max_h
+        self.strength = strength
+        self.intelligence = intelligence
+        self.name = name
+        self.cost = cost
+        self.armour_type = armour_type
+        self.lr = level_requirement
+
+    def apply_item(self):
+        """
+        Increases the player statistics according to the item.
+        """
+        player_one.speed += self.speed
+        player_one.max_health += self.max_h
+        player_one.strength += self.strength
+        player_one.intelligence += self.intelligence
+
+    def remove_item(self):
+        """
+        Decreases the player statistics according to the item.
+        """
+        player_one.speed -= self.speed
+        player_one.max_health -= self.max_h
+        player_one.strength -= self.strength
+        player_one.intelligence -= self.intelligence
+
+
+# ----------------- Below this line is cocos based
+
+
+# Layer that creates a sprite with movement.
+class SpriteL(cocos.layer.ScrollableLayer):
+    """
+    Creates the player sprite along with the animations for movement. Collision_handler allows the player to interact
+    with a set collision layer.
+
+    Contains functions: on_mouse_motion, check_for_death, on_key_press, on_key_release, level_up, natural_regen,
+    can_player_attack, set_legs.
+
+    __init__ parameters -
+        collision_handler : Used to define what area the player collides with.
+    """
+    # Cocos events are events that are defined within the module, such as on_key_press, is_event_handler must be defined
+    # as True to allow these to run.
+    is_event_handler = True
+
+    def __init__(self, collision_handler):
+        super().__init__()
+        self.collision_handler = collision_handler
+        p_image = pyglet.image.load("sources/walkinganim.png")
+        a_image = pyglet.image.load("sources/attackanim.png")
+        char_grid = pyglet.image.ImageGrid(p_image, 24, 1, item_height=64, item_width=64)
+        attack_grid = pyglet.image.ImageGrid(a_image, 21, 1, item_height=64, item_width=64)
+        self.animation = pyglet.image.Animation.from_image_sequence(char_grid[0:], 1 / 36)
+        self.attack = pyglet.image.Animation.from_image_sequence(attack_grid[0:], 1 / 84, loop=False)
+        self.legs = cocos.sprite.Sprite(pyglet.image.load("sources/idlewalk.png"))
+        self.char = cocos.sprite.Sprite(pyglet.image.load("sources/idle.png"))
+        self.char.position = 800, 800
+        self.char.velocity = (0, 0)
+        self.char.collide_map = self.collision_handler
+        self.legs.position = self.char.position
+        self.legs.velocity = (0, 0)
+        # Creates collision box
+        self.char.cshape = cm.AARectShape(eu.Vector2(*self.char.position), self.char.width / 2, self.char.height / 2)
+        self.char.do(mover())
+        self.base_xp_cap = 100
+        self.add(self.legs, 1)
+        self.add(self.char, 2)
+        self.can_attack = True
+        self.keys = []
+        self.keys_pressed = []
+        self.hold = 0
+        self.magic_ball = pyglet.image.load("sources/magic_ball.png")
+        self.mag_attack = cocos.sprite.Sprite(self.magic_ball)
+        self.mag_attack.position = self.char.position
+        self.mag_attack.scale = 0.2
+        self.mag_attack.velocity = (0, 0)
+        self.mag_attack.cshape = cm.AARectShape(eu.Vector2(*self.char.position), self.char.width / 2,
+                                                self.char.height / 2)
+        self.dead = False
+        self.can_magic = True
+
+    def on_mouse_motion(self, x, y, dx, dy):
+        """
+        Base function is part of pyglet, it checks for movement of the mouse and updates whenever it moves.
+        This function takes the co-ordinates of the mouse and the player, allowing the angle between them to be found
+        so that the player can be rotated towards the mouse.
+        :param x: x-coordinate of the mouse.
+        :param y: y-coordinate of the mouse
+        :param dx: Imported through pyglet, necessary for this to run.
+        :param dy: Imported through pyglet, necessary for this to run.
+        """
+        self.mx = scroller.screen_to_world(x, y)[0]
+        self.my = scroller.screen_to_world(x, y)[1]
+        mouse_x, mouse_y = scroller.screen_to_world(x, y)
+        rel_x = mouse_x - scroller.fx
+        rel_y = mouse_y - scroller.fy
+        angle = (180 / math.pi) * -math.atan2(rel_y, rel_x)
+        self.legs.rotation = (angle + 90)
+        self.char.rotation = (angle + 90)
+
+    # Checks if the player's health has reached less than 0 and, if it has, ends the game.
+    def check_for_death(self, dt):
+        """
+        Checks for the death of the player continuously, if the player's health has reached 0 or less, the sprite is
+        removed, the necessary schedule_intervals are stopped and a label appears stating that the game has ended.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if player_one.health <= 0:
+            scroller.unschedule(mainL.sprite.check_for_death)
+            self.remove(self.char)
+            self.remove(self.legs)
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    scroller.unschedule(item.do_damage)
+            self.game_over = cocos.text.Label("Game Over - Press enter to continue", font_size=20, anchor_x="center",
+                                         anchor_y="center")
+            x, y = scroller.screen_to_world(cocos.director.director.get_window_size()[0] / 2,
+                                            cocos.director.director.get_window_size()[1] / 2)
+            scroller.unschedule(mainL.autoSave)
+            self.game_over.position = x, y
+            self.add(self.game_over)
+            self.dead = True
+
+    # Allows the player to go to the intro after death.
+    def on_key_press(self, symbol, modifiers):
+        """
+        Base function is part of pyglet, runs whenever any button is pressed. This is used for several purposes,
+        the first if statement checks for the enter button and if the player is dead, if the requirements are met, the
+        scene changes from the game_over message to the start menu.
+        The second if statement checks for the movement keys being pressed. This stores the buttons currently pressed
+        and switches the legs animation to one depicting walking.
+        The third if statement checks for the space button and if the player is able to attack, which is set every 0.8
+        seconds, if they can it recreates the player sprite with an attacking animation.
+        :param symbol: This parameter refers to the button that is being pressed to call the function.
+        :param modifiers: Buttons that are currently pressed that modify the result, e.g. Caps Lock.
+        """
+        if symbol == pyglet.window.key.ENTER and self.dead is True:
+            SceneControlLayer.active_scene = intro()
+            cocos.director.director.replace(SlideInLTransition(SceneControlLayer.active_scene, duration=2))
+            self.dead = False
+            global player_one
+            player_one = Player("", "", "", 100, 1, 1, 100, 100, 0, 100, 100)
+            self.char.position = 800, 800
+            scroller.schedule_interval(mainL.sprite.check_for_death, 1 / 5)
+            self.remove(self.game_over)
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    scroller.schedule_interval(item.do_damage, 1.5)
+            self.add(self.legs)
+            self.add(self.char, 3)
+        if symbol == pyglet.window.key.W or symbol == pyglet.window.key.A or symbol == pyglet.window.key.S or symbol \
+                == pyglet.window.key.D:
+            self.keys_pressed.append(symbol)
+            self.keys = []
+            key_names = [pyglet.window.key.symbol_string(k) for k in self.keys_pressed]
+            self.keys.append(key_names)
+            keep_pos = self.char.position
+            keep_rot = self.char.rotation
+            self.legs.kill()
+            self.legs = cocos.sprite.Sprite(self.animation)
+            self.legs.position = keep_pos
+            self.legs.rotation = keep_rot
+            self.legs.velocity = (0, 0)
+            self.add(self.legs, 1)
+        if symbol == pyglet.window.key.E and self.can_attack is True:
+            keep_pos = self.char.position
+            keep_rot = self.char.rotation
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    item.get_hurt()
+            self.can_attack = False
+            self.char.kill()
+            self.char = cocos.sprite.Sprite(self.attack)
+            self.char.position = keep_pos
+            self.char.rotation = keep_rot
+            self.char.velocity = (0, 0)
+            self.char.collide_map = self.collision_handler
+            # Creates collision box
+            self.char.cshape = cm.AARectShape(eu.Vector2(*self.char.position), self.char.width / 2,
+                                              self.char.height / 2)
+            self.char.do(mover())
+            scroller.schedule_interval(mainL.sprite.can_player_attack, 0.7)
+            self.add(self.char, 2)
+        if symbol == pyglet.window.key.SPACE and self.can_attack is True and player_one.mana >= 10:
+            player_one.mana -= 10
+            self.can_attack = False
+            rel = 300/(abs((self.my - self.char.y)) + abs((self.mx - self.char.x)))
+            rel_x = rel * (self.mx - self.char.x)
+            rel_y = rel * (self.my - self.char.y)
+            move_ball = cocos.actions.MoveBy((rel_x, rel_y), 0.7)
+            self.mag_attack.position = self.char.position
+            self.mag_attack.do(move_ball)
+            self.mag_attack.cshape = cm.AARectShape(eu.Vector2(*self.char.position), self.char.width / 2,
+                                                    self.char.height / 2)
+            self.mag_attack.cshape.center = self.mag_attack.position
+            self.add(self.mag_attack)
+            scroller.schedule_interval(mainL.sprite.can_player_attack, 0.7)
+            scroller.schedule_interval(mainL.sprite.wait_remove, 0.7)
+        if symbol == pyglet.window.key.P and "Health Potion" in player_one.inventory:
+            player_one.inventory.remove("Health Potion")
+            if player_one.health < player_one.max_health:
+                player_one.health += 40
+            else:
+                pass
+
+    def wait_remove(self, dt):
+        """
+        Removes the magic attack after two seconds has passed.
+        :param dt:   Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        try:
+            self.remove(self.mag_attack)
+        except:
+            pass
+        scroller.unschedule(mainL.sprite.wait_remove)
+
+    def on_key_release(self, symbol, modifiers):
+        """
+        The default function is run whenever a key is released. This is used to check if any of the movement keys are
+        released, and if they are, reset the legs image to show an idle sprite. Along with on_key_press, it also
+        ensures that if two movement keys are pressed and one is released, the animation will still run.
+        :param symbol: The button that is being released to call the class.
+        :param modifiers: Buttons pressed that modify the result, e.g. Shift.
+        """
+        mainL.enemies_coll_with = 0
+        if symbol == pyglet.window.key.W or symbol == pyglet.window.key.A or symbol == pyglet.window.key.S or \
+                symbol == pyglet.window.key.D:
+            keep_pos = self.char.position
+            keep_rot = self.char.rotation
+            self.keys = []
+            for item in self.keys_pressed:
+                if item == symbol:
+                    self.keys_pressed.remove(item)
+                    key_names = [pyglet.window.key.symbol_string(k) for k in self.keys_pressed]
+                    self.keys.append(key_names)
+            if self.keys == [] or self.keys[0] == []:
+                try:
+                    self.legs.kill()
+                    self.legs = cocos.sprite.Sprite(pyglet.image.load("sources/idlewalk.png"))
+                    self.legs.position = keep_pos
+                    self.legs.rotation = keep_rot
+                    self.legs.velocity = (0, 0)
+                    self.add(self.legs, 1)
+                except:
+                    pass
+
+    def level_up(self, dt):
+        """
+        Checks if the player exp has reached the requirement to level, if it has, the player will level and the
+        remaining exp will be added onto the new level.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if player_one.exp >= self.base_xp_cap:
+            increase = player_one.exp - self.base_xp_cap
+            player_one.level += 1
+            player_one.exp = increase
+            player_one.allocatable_points += 1
+            self.base_xp_cap = round(self.base_xp_cap * 1.15)
+
+    @staticmethod
+    def natural_regen(dt):
+        """
+        Every 0.8 seconds, the player health increases by 1.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if player_one.health < player_one.max_health:
+            player_one.health += 1
+
+    @staticmethod
+    def mana_regen(dt):
+        """
+        Every 0.8 seconds, the player mana increases by 1.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if player_one.mana < player_one.max_mana:
+            player_one.mana += 1
+
+    def can_player_attack(self, dt):
+        """
+        Resets the ability for the player to attack every 0.7 seconds, stops the space button from being spammed.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.can_attack = True
+        scroller.unschedule(mainL.sprite.can_player_attack)
+
+    def set_legs(self, dt):
+        """
+        Leg position is continually set to the location of the player body.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.legs.position = self.char.position
+        mainL.sprite.mag_attack.cshape.center = mainL.sprite.mag_attack.position
+        for item in mainL.scorpions:
+            if mainL.coll_manager.they_collide(item.collide2, mainL.sprite.mag_attack):
+                item.attributes.health -= player_one.intelligence
+                mainL.sprite.mag_attack.position = (-200, -200)
+                mainL.sprite.mag_attack.cshape.center = (-200, -200)
+                try:
+                    mainL.sprite.remove(mainL.sprite.mag_attack)
+                except:
+                    pass
+
+    def add_item(self, item):
+        """
+        Adds the item to the player inventory, increases stats accordingly.
+        """
+        pass
+
+    def remove_item(self, item):
+        """
+        Removes the item from the player inventory, decreases stats accordingly.
+        """
+        pass
+
+
+# Layer that allows sprites to move by pressing arrow keys.
+class mover(cocos.actions.Move):
+    """
+    Edited version of the inbuilt cocos cocos.actions.Move, used by the player sprite. Allows for collisions.
+    Contains functions: step.
+    """
+
+    def step(self, dt):
+        """
+        Part of the inbuilt cocos.actions.Move, allows movement and collisions. Also sets the scroller location to the
+        player location.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        super().step(dt)
+        vel_x = (keyboard[pyglet.window.key.D] - keyboard[pyglet.window.key.A]) * player_one.speed * 2
+        vel_y = (keyboard[pyglet.window.key.W] - keyboard[pyglet.window.key.S]) * player_one.speed * 2
+
+        dx = vel_x * dt
+        dy = vel_y * dt
+
+        last = self.target.get_rect()
+
+        new = last.copy()
+        new.x += dx
+        new.y += dy
+        self.target.velocity = self.target.collide_map(last, new, dx, dy)
+        # Sets player collision box to wherever the player currently is.
+        self.target.cshape.center = eu.Vector2(*self.target.position)
+        self.target.position = new.center
+        scroller.set_focus(*new.center)
+
+
+class monsL(cocos.layer.ScrollableLayer):
+    """
+    Controls everything to do with enemies, every instance of it creates an enemy, each one has a collision box.
+    Imports an instance of the monster layer as attributes.
+    Contains functions: rotate, pos, cancel_pos, do_damage, mons_health, get_hurt.
+    """
+    is_event_handler = True
+
+    def __init__(self, name, desc, speed, intelligence, strength, max_health, health, level, pos_x, pos_y, give_exp,
+                 give_gold, order, image):
+        super().__init__()
+        self.alive = True
+        self.order = order
+        m_image = pyglet.image.load(image)
+        self.pos_x = pos_x
+        self.pos_y = pos_y
+        char_grid = pyglet.image.ImageGrid(m_image, 1, 4, item_height=32, item_width=32)
+        animation = pyglet.image.Animation.from_image_sequence(char_grid[0:], 0.2)
+        mon = cocos.sprite.Sprite(animation)
+        mon.position = pos_x, pos_y
+        mon.cshape = cm.AARectShape(eu.Vector2(*mon.position), mon.width * 6, mon.height * 6)
+        mon.velocity = (0, 0)
+        c_image = pyglet.image.load("sources/collider.png")
+        collide = cocos.sprite.Sprite(c_image)
+        collide.position = mon.position
+        collide.opacity = 0
+        collide.cshape = cm.AARectShape(eu.Vector2(*collide.position), collide.width / 8, collide.height / 4)
+        collide2 = cocos.sprite.Sprite(c_image)
+        collide2.position = mon.position
+        collide2.opacity = 0
+        collide2.cshape = cm.AARectShape(eu.Vector2(*collide2.position), collide2.width / 16, collide2.height / 8)
+        self.add(collide2)
+        self.add(collide)
+        self.attributes = Monster(name, desc, speed, intelligence, strength, max_health, health, level, give_exp,
+                                  give_gold)
+        self.health = cocos.text.Label("Health : " + str(self.attributes.health))
+        self.add(self.health)
+
+        self.add(mon)
+        self.mon = mon
+        if image == "sources/boss.png":
+            self.mon.scale = 3
+        self.collide = collide
+        self.collide2 = collide2
+
+    def rotate(self):
+        """
+        Rotates the enemy to face towards the player if the player is close enough.
+        """
+        rel_x = self.mon.position[0] - scroller.fx
+        rel_y = self.mon.position[1] - scroller.fy
+        angle = (180 / math.pi) * -math.atan2(rel_y, rel_x)
+        self.mon.rotation = (angle - 90)
+
+    def pos(self):
+        """
+        Moves the enemy to the location of the player if they are close enough.
+        """
+        play_x = scroller.fx
+        play_y = scroller.fy
+        move = cocos.actions.MoveTo((play_x, play_y), duration=2)
+        self.mon.do(move)
+
+    def cancel_pos(self):
+        """
+        Cancels movement if the player moves out of range.
+        """
+        move = cocos.actions.MoveTo(self.mon.position)
+        self.mon.do(move)
+
+    def do_damage(self, dt):
+        """
+        If the player is close enough, does damage to player.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if mainL.coll_manager.they_collide(mainL.sprite.char, self.collide):
+            player_one.decrease_health(self.attributes.strength)
+
+    def mons_health(self, dt):
+        """
+        Enemy health bar.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.health.kill()
+        if self.attributes.health < 0:
+            reply = 0
+        else:
+            reply = self.attributes.health
+        self.health = cocos.text.Label("Health : " + str(round(reply)))
+        self.health.position = self.mon.position[0] - 40, self.mon.position[1] - 35
+        self.add(self.health)
+
+    def get_hurt(self):
+        """
+        Causes damage to the enemy if player is close enough and presses space.
+        """
+        if mainL.coll_manager.they_collide(mainL.sprite.char, self.mon) and mainL.sprite.can_attack is True:
+            mainL.enemies_coll_with += 1
+            if mainL.enemies_coll_with == 1:
+                self.attributes.get_hit()
+
+    def respawn(self, dt):
+        """
+        Respawns the enemy after the time frame within the schedule interval.
+        """
+        if not self.alive:
+            scroller.unschedule(self.respawn)
+
+            self.mon.position = random.randint(50, Center.px_width - 50), \
+                                random.randint(50, Center.px_height - 50)
+            self.mon.rotation = random.randint(0, 360)
+            self.alive = True
+            self.attributes.health = self.attributes.max_health
+            scroller.add(self, 1)
+            scroller.schedule_interval(self.mons_health, 1 / 60)
+            scroller.schedule_interval(self.do_damage, 1.5)
+
+
+# Background layer, contains information for the image and where collisions happen.
+class bg(cocos.layer.ScrollableLayer):
+    """
+    Instances of this are used to import Tiled Map Editor backgrounds.
+    """
+
+    def __init__(self, file):
+        super().__init__()
+        self.background = cocos.tiles.load(file)
+        self.layer1 = self.background["Tile Layer 1"]
+        try:
+            self.layer2 = self.background["Tile Layer 2"]
+        except:
+            pass
+        self.collide = self.background["colliders"]
+        self.px_width = 1600
+        self.px_height = 1600
+        self.position = 800, 800
+
+
+class Transporter(cocos.layer.ScrollableLayer):
+    """
+    Creates four sprites, at each cardinal direction on the borders of the screen, if these are collided with a function
+    runs that appears as if the player has been transported.
+    Contains functions: move, go_north, go_south, go_east, go_west.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.next_item = [None, None, None, None, None, None, None, None, None]
+        sample = pyglet.image.load("sources/button2.jpg")
+        self.north = cocos.sprite.Sprite(sample)
+        self.south = cocos.sprite.Sprite(sample)
+        self.east = cocos.sprite.Sprite(sample)
+        self.west = cocos.sprite.Sprite(sample)
+        self.north.position = Center.px_width / 2, Center.px_height
+        self.south.position = Center.px_width / 2, 0
+        self.east.position = Center.px_width, Center.px_height / 2
+        self.west.position = 0, Center.px_height / 2
+        x_comp = Center.px_width / self.north.width
+        y_comp = Center.px_height / self.north.width
+        self.north.scale_x = x_comp
+        self.north.scale_y = 0.1
+        self.south.scale_x = x_comp
+        self.south.scale_y = 0.1
+        self.east.scale_x = 0.1
+        self.east.scale_y = y_comp
+        self.west.scale_x = 0.1
+        self.west.scale_y = y_comp
+        self.north.opacity = 0
+        self.south.opacity = 0
+        self.east.opacity = 0
+        self.west.opacity = 0
+        self.first_time = 0
+        directions = [self.north, self.south, self.east, self.west]
+        for item in directions:
+            item.cshape = cm.AARectShape(eu.Vector2(*item.position), item.width / 2, item.height / 2)
+            item.cshape.center = eu.Vector2(*item.position)
+        self.add(self.north)
+        self.add(self.south)
+        self.add(self.east)
+        self.add(self.west)
+
+    def move(self, dt):
+        """
+        Continually checks for collisions with each of the sides, if collisions are detected then it runs the associated
+         function.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        coll_directions = [mainL.transport.north, mainL.transport.south, mainL.transport.east, mainL.transport.west]
+        for item in coll_directions:
+            if mainL.coll_manager.they_collide(mainL.sprite.char, item):
+                if item == mainL.transport.north:
+                    self.go_north()
+                if item == mainL.transport.south:
+                    self.go_south()
+                if item == mainL.transport.east:
+                    self.go_east()
+                if item == mainL.transport.west:
+                    self.go_west()
+
+    def go_north(self):
+        """
+        Function is used to allow the player to go north whenever they reach the north border. Checks what area is north
+        of the current and replaces it with the aforementioned area.
+        """
+        global one
+        cur_pos = mainL.sprite.char.position[0], 100
+        if self.first_time == 0:
+            self.next_item = layer_dictionary[current_item[3]]
+            self.first_time = 1
+            current.killLayer()
+        else:
+            one.killLayer()
+            self.next_item = layer_dictionary[self.next_item[3]]
+        one = defineLayer(self.next_item[0], self.next_item[1], self.next_item[2])
+        mainL.sprite.char.position = cur_pos
+        mainL.sprite.legs.position = cur_pos
+
+    def go_south(self):
+        """
+        Function is used to allow the player to go south whenever they reach the south border. Checks what area is south
+        of the current and replaces it with the aforementioned area.
+        """
+        global one
+        cur_pos = mainL.sprite.char.position[0], Center.px_height - 100
+        if self.first_time == 0:
+            self.next_item = layer_dictionary[current_item[4]]
+            self.first_time = 1
+            current.killLayer()
+        else:
+            one.killLayer()
+            self.next_item = layer_dictionary[self.next_item[4]]
+        one = defineLayer(self.next_item[0], self.next_item[1], self.next_item[2])
+        mainL.sprite.char.position = cur_pos
+        mainL.sprite.legs.position = cur_pos
+
+    def go_east(self):
+        """
+        Function is used to allow the player to go east whenever they reach the east border. Checks what area is east
+        of the current and replaces it with the aforementioned area.
+        """
+        global one
+        cur_pos = 100, mainL.sprite.char.position[1]
+        if self.first_time == 0:
+            self.next_item = layer_dictionary[current_item[5]]
+            self.first_time = 1
+            current.killLayer()
+        else:
+            one.killLayer()
+            self.next_item = layer_dictionary[self.next_item[5]]
+        one = defineLayer(self.next_item[0], self.next_item[1], self.next_item[2])
+        mainL.sprite.char.position = cur_pos
+        mainL.sprite.legs.position = cur_pos
+
+    def go_west(self):
+        """
+        Function is used to allow the player to go west whenever they reach the west border. Checks what area is west
+        of the current and replaces it with the aforementioned area.
+        """
+        global one
+        cur_pos = Center.px_width - 100, mainL.sprite.char.position[1]
+        if self.first_time == 0:
+            self.next_item = layer_dictionary[current_item[6]]
+            self.first_time = 1
+            current.killLayer()
+        else:
+            one.killLayer()
+            self.next_item = layer_dictionary[self.next_item[6]]
+
+        one = defineLayer(self.next_item[0], self.next_item[1], self.next_item[2])
+        mainL.sprite.char.position = cur_pos
+        mainL.sprite.legs.position = cur_pos
+
+    # Layer that contains multiple others so they can interact easier.
+
+
+class mainLayer(cocos.layer.Layer):
+    """
+    Used as an in-between point for instances of other classes and the scroller, contains enemies, the player sprite and
+    the overlay.
+    Contains functions: update, checkForDeath, close.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.diffStore = 0
+        self.ph = playerHealth()
+        self.pm = playerMoney()
+        self.loc = location()
+        self.pma = playerMana()
+        self.hs = helpSign()
+        self.store = Store()
+        self.enemies_coll_with = 0
+        self.inventoryOpen = 0
+        self.multi = 1
+        self.coll_manager = cm.CollisionManagerBruteForce()
+        self.map = mapLayer()
+        self.firstlayer = 1
+        # Instances of enemies.
+        # name, desc, speed, intelligence, strength, max_health, health, level, pos_x, pos_y, give_exp,
+        # give_gold, order, image
+        self.scorpions_backup = [monsL("", "", 10, 10, 10, 30, 30, 1, 200, 200, 100, random.randint(7, 13), 1, "sources/scorpion.png"),
+                                 monsL("", "", 5, 5, 5, 15, 15, 1, 200, 300, 100, random.randint(7, 13), 2, "sources/scorpion.png")]
+        self.scorpions = [monsL("", "", 10, 10, 10, 30, 30, 1, 200, 200, 100, random.randint(7, 13), 1, "sources/scorpion.png"),
+                          monsL("", "", 5, 5, 5, 15, 15, 1, 200, 300, 100, random.randint(7, 13), 2, "sources/scorpion.png")]
+        self.bat = [monsL("", "", 20, 20, 20, 75, 75, 2, 200, 200, 200, random.randint(17, 23), 1, "sources/bat.png"),
+                    monsL("", "", 30, 30, 30, 90, 90, 2, 200, 300, 200, random.randint(17, 23), 2, "sources/bat.png")]
+        self.beetle = [monsL("", "", 40, 40, 40, 150, 150, 3, 200, 200, 300, random.randint(27, 33), 1, "sources/beetle.png"),
+                       monsL("", "", 60, 60, 60, 200, 200, 3, 200, 300, 300, random.randint(27, 33), 2, "sources/beetle.png")]
+        self.snake = [monsL("", "", 80, 80, 80, 300, 300, 4, 200, 200, 400, random.randint(37, 43), 1, "sources/snake.png"),
+                      monsL("", "", 100, 100, 100, 350, 350, 4, 200, 300, 400, random.randint(37, 43), 2, "sources/snake.png")]
+        self.boss = [monsL("", "", 150, 150, 150, 700, 700, 6, 800, 800, 1000, random.randint(100, 150), 1, "sources/boss.png"),]
+        self.pause_button = Button(0, 500, pauseScene(), "pause", 1, 1, 1, "sources/pause.png")
+        self.stats_button = Button(80, 500, pauseScene(), "stats", 1, 1, 1, "sources/stats.png")
+        self.inventory_button = Button(int(cocos.director.director.get_window_size()[0]) - 80, 500, 1, "inventory", 1,
+                                       1, 1, "sources/inventory.png")
+        self.transport = Transporter()
+        self.map_collide = mapcolliders.TmxObjectMapCollider()
+        self.map_collide.on_bump_handler = self.map_collide.on_bump_bounce
+        self.collision_handler = mapcolliders.make_collision_handler(self.map_collide, Center.collide)
+        self.sprite = SpriteL(self.collision_handler)
+        self.current_pos = (0, 0)
+        self.storeImage = StoreFront()
+        self.current = False
+        # note, UI can be left, only really need to change background and enemies till more features are added.
+        self.add(self.map)
+        self.add(self.storeImage)
+        self.add(self.pause_button)
+        self.add(self.stats_button)
+        self.add(self.inventory_button)
+        self.add(self.hs)
+        self.add(self.ph)
+        self.add(self.pma)
+        self.add(self.pm)
+        self.add(self.store)
+        self.add(self.loc)
+
+    def update(self, dt):
+        """
+        Runs every 1/60 of a second, is used for updating enemy movement and their collision boxes.
+        :param dt:  Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        for item in self.scorpions:
+            item.mon.cshape.center = eu.Vector2(*item.mon.position)
+            item.collide.cshape.center = eu.Vector2(*item.mon.position)
+            item.collide2.cshape.center = eu.Vector2(*item.mon.position)
+            if self.coll_manager.they_collide(self.sprite.char, item.mon):
+                item.rotate()
+                item.pos()
+            if not self.coll_manager.they_collide(self.sprite.char, item.mon):
+                item.cancel_pos()
+
+    def checkForDeath(self, dt):
+        """
+        Checks to see if enemies are dead, removes them upon death.
+        :param dt:  Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        for item in self.scorpions:
+            if item.attributes.health <= 0:
+                if item.alive:
+                    scroller.schedule_interval(item.respawn, 10)
+                    scroller.unschedule(item.do_damage)
+                    item.kill()
+                    item.alive = False
+                    player_one.exp += item.attributes.give_exp
+                    player_one.gold += item.attributes.give_gold
+
+    def close(self):
+        """
+        Used to close the attributes page, removes all of the labels and the background button.
+        """
+        self.stats_button.stats_open = False
+        self.stats_button.overlay.kill()
+        self.stats_button.strength.kill()
+        self.stats_button.intelligence.kill()
+        self.stats_button.exit_button.kill()
+        self.stats_button.speed.kill()
+        self.stats_button.health.kill()
+        self.stats_button.title.kill()
+        self.stats_button.experience.kill()
+        self.stats_button.level.kill()
+        self.stats_button.points.kill()
+        try:
+            self.stats_button.strength_button.kill()
+            self.stats_button.health_button.kill()
+            self.stats_button.intelligence_button.kill()
+            self.stats_button.speed_button.kill()
+        except AttributeError:
+            pass
+
+    def close_store(self):
+        """
+        Closes the store page.
+        """
+        self.store.overlay.kill()
+        self.store.title.kill()
+        try:
+            self.store.buy1.kill()
+        except:
+            pass
+        try:
+            self.store.buy2.kill()
+        except:
+            pass
+        try:
+            self.store.buy3.kill()
+        except:
+            pass
+        self.store.equip1.kill()
+        self.store.equip2.kill()
+        self.store.equip3.kill()
+
+    @staticmethod
+    def autoSave(dt):
+        """
+        Saves game to savefile.txt.
+        """
+        savefile = open("sources/savefile.txt", mode='w')
+        savefile.writelines([str(player_one.max_health), "\n" + str(player_one.health), "\n" + str(player_one.strength),
+                             "\n" + str(player_one.intelligence), "\n" + str(player_one.speed),
+                             "\n" + str(player_one.allocatable_points), "\n" + str(player_one.exp),
+                             "\n" + str(player_one.level), "\n" + str(player_one.gold)])
+        savefile.close()
+
+
+class defineLayer(cocos.layer.Layer):
+    """
+    Used with the transporter layer, easier to define a new layer through using this class.
+    Contains functions: killLayer.
+    """
+
+    def __init__(self, add_enemies, enemies, background):
+        super().__init__()
+        self.enemies = enemies
+        self.back_g = background.layer1
+        try:
+            self.back_g2 = background.layer2
+        except:
+            pass
+        if mainL.transport.next_item[7] == 1:
+            mainL.scorpions = mainL.scorpions_backup
+        elif mainL.transport.next_item[7] == 6:
+            mainL.scorpions = mainL.boss
+        elif mainL.transport.next_item[7] == 2:
+            mainL.scorpions = mainL.bat
+        elif mainL.transport.next_item[7] == 3:
+            mainL.scorpions = mainL.beetle
+        elif mainL.transport.next_item[7] == 4:
+            mainL.scorpions = mainL.snake
+        scroller.add(self.back_g)
+        try:
+            scroller.add(self.back_g2)
+        except:
+            pass
+
+        mainL.map_collide = mapcolliders.TmxObjectMapCollider()
+        mainL.map_collide.on_bump_handler = mainL.map_collide.on_bump_bounce
+        mainL.collision_handler = mapcolliders.make_collision_handler(mainL.map_collide, background.collide)
+        scroller.unschedule(mainL.sprite.check_for_death)
+        mainL.sprite = SpriteL(mainL.collision_handler)
+        scroller.schedule_interval(mainL.sprite.check_for_death, 1/5)
+        scroller.add(mainL.sprite, 2)
+        scroller.schedule_interval(mainL.sprite.set_legs, 1 / 60)
+        scroller.schedule_interval(mainL.sprite.can_player_attack, 0.7)
+        self.firsttime = 1
+        if mainL.transport.next_item[8] == "H8" or mainL.firstlayer == 1:
+            mainL.firstlayer = 0
+            store = 1
+        else:
+            store = random.randint(1, 10)
+        if store > 1:
+            mainL.storeImage.front.position = -200, -200
+            mainL.storeImage.front.cshape.center = mainL.storeImage.front.position
+        else:
+            mainL.storeImage.front.position = 832, 600
+            mainL.storeImage.front.cshape.center = mainL.storeImage.front.position
+        if add_enemies:
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    item.mon.position = random.randint(50, Center.px_width - 50), \
+                                        random.randint(50, Center.px_height - 50)
+                    item.mon.rotation = random.randint(0, 360)
+                    item.alive = True
+                    item.attributes.health = item.attributes.max_health
+                    scroller.add(item, 1)
+                    scroller.schedule_interval(item.mons_health, 1 / 60)
+                    scroller.schedule_interval(item.do_damage, 1.5)
+        self.reset_en_diff(mainL.multi)
+
+    def killLayer(self):
+        """
+        Used to remove the current layer so that a new one can be added.
+        """
+        mainL.sprite.kill()
+        scroller.remove(self.back_g)
+        try:
+            scroller.remove(self.back_g)
+        except:
+            pass
+        scroller.unschedule(mainL.sprite.set_legs)
+        scroller.unschedule(mainL.sprite.can_player_attack)
+        if current_item[0]:
+            for item in mainL.scorpions:
+                if item.alive:
+                    item.kill()
+                scroller.unschedule(item.mons_health)
+                scroller.unschedule(item.do_damage)
+
+    def reset_en_diff(self, multi):
+        """
+        Resets the enemy difficulty by removing all of them and then re-spawns them with the health multiplied by the
+        multiplier.
+        :param multi: Parameter from which enemy health is multiplied.
+        """
+        if self.firsttime == 1:
+            self.firsttime = 0
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    if item.alive:
+                        item.kill()
+                    scroller.unschedule(item.mons_health)
+                    scroller.unschedule(item.do_damage)
+            if current_item[0]:
+                for item in mainL.scorpions:
+                    item.mon.position = random.randint(50, Center.px_width - 50), \
+                                        random.randint(50, Center.px_height - 50)
+                    item.mon.rotation = random.randint(0, 360)
+                    item.alive = True
+                    temp = item.attributes.max_health
+                    temp *= multi
+                    item.attributes.health = temp
+                    scroller.add(item, 1)
+                    scroller.schedule_interval(item.mons_health, 1 / 60)
+                    scroller.schedule_interval(item.do_damage, 1.5)
+
+
+class StoreFront(cocos.layer.ScrollableLayer):
+    """
+    Creates the front of the store that the player is able to walk up to and interact with.
+    """
+    def __init__(self):
+        super().__init__()
+        interact = pyglet.image.load("sources/Store.png")
+        self.front = cocos.sprite.Sprite(interact)
+        self.front.cshape = cm.AARectShape(eu.Vector2(*self.front.position), self.front.width / 2,
+                                           self.front.height / 2)
+        self.front.position = 832, 600
+        self.front.cshape.center = 832, 600
+        self.add(self.front)
+
+
+class Store(cocos.layer.Layer):
+    """
+    Allows the player to purchase items with collected gold and add them to their inventory.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.storeOpen = False
+
+    def check_for_store(self, dt):
+        """
+        Checks if the store should be open, opens if it should, closes it if it shouldn't.
+        :param dt:
+        """
+        if mainL.coll_manager.they_collide(mainL.sprite.char, mainL.storeImage.front) and self.storeOpen is False:
+            self.storeOpen = True
+            self.store_screen()
+        elif mainL.coll_manager.they_collide(mainL.sprite.char, mainL.storeImage.front) is False and self.storeOpen:
+            self.storeOpen = False
+            mainL.close_store()
+
+    def store_screen(self):
+        """
+        Creates the screen for the player to buy items from.
+        """
+        over = pyglet.image.load("sources/blackbox.jpg")
+        self.overlay = cocos.sprite.Sprite(over)
+        self.overlay.position = int(cocos.director.director.get_window_size()[0]) / 2, int(
+            cocos.director.director.get_window_size()[1]) / 2
+        self.overlay.opacity = 170
+        self.overlay.scale_x = 0.5
+        self.overlay.scale_y = 0.85
+        self.title = cocos.text.Label("Store", font_size=20, anchor_x="center", color=(255, 255, 255, 255))
+        self.title.position = self.overlay.position[0], self.overlay.position[1] + 170
+        temp = 0
+        for item in item_dictionary:
+            if item.lr <= player_one.level:
+                temp += 1
+        self.item1 = random.randint(0, temp - 1)
+        self.item2 = random.randint(0, temp - 1)
+        self.item3 = random.randint(0, temp - 1)
+        self.item1 = item_dictionary[self.item1]
+        self.item2 = item_dictionary[self.item2]
+        self.item3 = item_dictionary[self.item3]
+        self.equip1 = cocos.text.Label(self.item1.name, font_size=20, anchor_x="center", color=(255, 255, 255, 255))
+        self.equip1.position = self.overlay.position[0], self.overlay.position[1] + 100
+        self.equip2 = cocos.text.Label(self.item2.name, font_size=20, anchor_x="center", color=(255, 255, 255, 255))
+        self.equip2.position = self.overlay.position[0], self.overlay.position[1] + 0
+        self.equip3 = cocos.text.Label(self.item3.name, font_size=20, anchor_x="center", color=(255, 255, 255, 255))
+        self.equip3.position = self.overlay.position[0], self.overlay.position[1] - 100
+        self.add(self.overlay)
+        if player_one.gold >= self.item1.cost:
+            self.buy1 = Button(1, 1, 1, "purchase", 1, self.item1, self.item1.armour_type, "sources/increase.png")
+            self.buy1.button.position = self.equip1.position[0] + 110, self.equip1.position[1]
+            self.buy1.button.scale = 0.2
+            self.add(self.buy1)
+        if player_one.gold >= self.item2.cost:
+            self.buy2 = Button(1, 1, 1, "purchase", 2, self.item2, self.item2.armour_type, "sources/increase.png")
+            self.buy2.button.position = self.equip2.position[0] + 110, self.equip2.position[1]
+            self.buy2.button.scale = 0.2
+            self.add(self.buy2)
+        if player_one.gold >= self.item3.cost:
+            self.buy3 = Button(1, 1, 1, "purchase", 3, self.item3, self.item3.armour_type, "sources/increase.png")
+            self.buy3.button.position = self.equip3.position[0] + 110, self.equip3.position[1]
+            self.buy3.button.scale = 0.2
+            self.add(self.buy3)
+        self.add(self.equip1)
+        self.add(self.equip2)
+        self.add(self.equip3)
+        self.add(self.title)
+
+
+class Button(cocos.layer.Layer):
+    """
+    Instances of this are used to create click-able buttons.
+    Contains functions: mouse_on_sprite, on_mouse_press, on_mouse_motion.
+    """
+    is_event_handler = True
+
+    def __init__(self, x, y, link, type_of_button, attribute, modify, text, image):
+        super().__init__()
+        self.button = cocos.sprite.Sprite(image, anchor=(0, 0))
+        self.button.scale = 0.3
+        self.button.position = x, y
+        self.add(self.button)
+        self.link = link
+        self.type = type_of_button
+        self.attribute = attribute
+        self.text = text
+        self.modify = modify
+        self.stats_open = False
+
+    def mouse_on_sprite(self, x, y):
+        """
+        Checks if the mouse is on the sprite by checking if it is in the area of the button.
+        :param x: X co-ordinate of the mouse.
+        :param y: Y co-ordinate of the mouse.
+        :return: Returns True if the mouse is on the sprite, else, False.
+        """
+        if self.button.x + self.button.width > cocos.director.director.get_virtual_coordinates(x, y)[0] > self.button.x and \
+                self.button.y + self.button.height > cocos.director.director.get_virtual_coordinates(x, y)[1] > self.button.y:
+            return True
+        return False
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        """
+         If the left mouse button is pressed, checks which type of button it is and performs the appropriate action.
+         Pause button switches the scene, stats button loads up a stats overlay, exit button closes the stats overlay,
+         increase button increases the related stat.
+        :param x: X co-ordinate of the mouse.
+        :param y: Y co-ordinate of the mouse.
+        :param button: Which mouse button is being pressed, e.g. left mouse button.
+        :param modifiers: Used for keyboard events, however required for the function.
+        """
+        if button & mouse.LEFT:
+            if self.mouse_on_sprite(x, y):
+                if self.type == "pause":
+                    if not mainL.hs.opened:
+                        mainL.hs.opened = True
+                        mainL.hs.counter.kill()
+                    SceneControlLayer.active_scene = self.link
+                    cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+                if self.type == "stats" and self.stats_open is False:
+                    over = pyglet.image.load("sources/blackbox.jpg")
+                    self.overlay = cocos.sprite.Sprite(over)
+                    self.overlay.position = int(cocos.director.director.get_window_size()[0]) / 2, int(
+                        cocos.director.director.get_window_size()[1]) / 2
+                    self.overlay.opacity = 170
+                    self.overlay.scale_x = 0.5
+                    self.overlay.scale_y = 0.85
+                    self.title = cocos.text.Label("Stats", font_size=20, anchor_x="center", color=(255, 255, 255, 255))
+                    self.title.position = self.overlay.position[0], self.overlay.position[1] + 170
+                    self.level = cocos.text.Label("Level : " + str(player_one.level), font_size=15, anchor_x="center")
+                    self.level.position = self.overlay.position[0], self.overlay.position[1] + 100
+                    self.experience = cocos.text.Label("Experience : " + str(player_one.exp), font_size=15,
+                                                       anchor_x="center")
+                    self.experience.position = self.overlay.position[0], self.overlay.position[1] + 60
+                    self.health = cocos.text.Label(
+                        "Health : " + str(player_one.health) + " / " + str(player_one.max_health), font_size=15,
+                        anchor_x="center")
+                    self.health.position = self.overlay.position[0], self.overlay.position[1] + 20
+                    self.strength = cocos.text.Label("Strength : " + str(player_one.strength), font_size=15,
+                                                     anchor_x="center")
+                    self.strength.position = self.overlay.position[0], self.overlay.position[1] - 20
+                    self.intelligence = cocos.text.Label("Intelligence : " + str(player_one.intelligence), font_size=15,
+                                                         anchor_x="center")
+                    self.intelligence.position = self.overlay.position[0], self.overlay.position[1] - 60
+                    self.speed = cocos.text.Label("Speed : " + str(float(player_one.speed / 100)), font_size=15,
+                                                  anchor_x="center")
+                    self.speed.position = self.overlay.position[0], self.overlay.position[1] - 100
+                    self.exit_button = Button(1, 1, 1, "exit", 1, 1, 1, "sources/exit.png")
+                    self.exit_button.button.scale = 0.2
+                    self.exit_button.button.position = self.overlay.position[0] + 140, self.overlay.position[1] + 150
+                    self.points = cocos.text.Label("Points available : " + str(player_one.allocatable_points),
+                                                   font_size=15, anchor_x="center")
+                    self.points.position = self.overlay.position[0], self.overlay.position[1] - 180
+                    self.health_button = Button(1, 1, 1, "increase", player_one.max_health, self.health, "Health : ",
+                                                "sources/increase.png")
+                    self.health_button.button.position = self.health.position[0] + 120, self.health.position[1]
+                    self.health_button.button.scale = 0.1
+                    self.strength_button = Button(1, 1, 1, "increase", player_one.strength, self.strength,
+                                                  "Strength : ", "sources/increase.png")
+                    self.strength_button.button.position = self.strength.position[0] + 120, self.strength.position[1]
+                    self.strength_button.button.scale = 0.1
+                    self.intelligence_button = Button(1, 1, 1, "increase", player_one.intelligence, self.intelligence,
+                                                      "Intelligence : ", "sources/increase.png")
+                    self.intelligence_button.button.position = self.intelligence.position[0] + 120, \
+                                                               self.intelligence.position[1]
+                    self.intelligence_button.button.scale = 0.1
+                    self.speed_button = Button(1, 1, 1, "increase", player_one.speed, self.speed, "Speed : ",
+                                               "sources/increase.png")
+                    self.speed_button.button.position = self.speed.position[0] + 120, self.speed.position[1]
+                    self.speed_button.button.scale = 0.1
+                    self.stats_open = True
+                    self.add(self.overlay)
+                    self.add(self.title)
+                    self.add(self.level)
+                    self.add(self.experience)
+                    self.add(self.health)
+                    self.add(self.strength)
+                    self.add(self.intelligence)
+                    self.add(self.speed)
+                    self.add(self.exit_button)
+                    self.add(self.points)
+                    if player_one.allocatable_points > 0:
+                        self.add(self.speed_button)
+                        self.add(self.intelligence_button)
+                        self.add(self.strength_button)
+                        self.add(self.health_button)
+                if self.type == "exit":
+                    if self.modify == 1:
+                        mainL.close()
+                    else:
+                        mainL.close_store()
+                if self.type == "increase":
+                    if player_one.allocatable_points > 0:
+                        if self.modify == mainL.stats_button.health:
+                            self.modify.kill()
+                            player_one.max_health += 5
+                            mainL.stats_button.health = cocos.text.Label(
+                                "Health : " + str(player_one.health) + " / " + str(player_one.max_health), font_size=15,
+                                anchor_x="center")
+                            mainL.stats_button.health.position = mainL.stats_button.overlay.position[0], \
+                                                                 mainL.stats_button.overlay.position[1] + 20
+                            mainL.stats_button.add(mainL.stats_button.health)
+                            self.modify = mainL.stats_button.health
+                            player_one.allocatable_points -= 1
+                            mainL.stats_button.points.kill()
+                            mainL.stats_button.points = cocos.text.Label(
+                                "Points available : " + str(player_one.allocatable_points), font_size=15,
+                                anchor_x="center")
+                            mainL.stats_button.points.position = mainL.stats_button.overlay.position[0], \
+                                                                 mainL.stats_button.overlay.position[1] - 180
+                            mainL.stats_button.add(mainL.stats_button.points)
+
+                        elif self.modify == mainL.stats_button.intelligence:
+                            mainL.stats_button.intelligence.kill()
+                            player_one.intelligence += 1
+                            mainL.stats_button.intelligence = cocos.text.Label(
+                                "Intelligence : " + str(player_one.intelligence), font_size=15, anchor_x="center")
+                            mainL.stats_button.intelligence.position = mainL.stats_button.overlay.position[0], \
+                                                                       mainL.stats_button.overlay.position[1] - 60
+                            mainL.stats_button.add(mainL.stats_button.intelligence)
+                            self.modify = mainL.stats_button.intelligence
+                            player_one.allocatable_points -= 0.5
+                            mainL.stats_button.points.kill()
+                            mainL.stats_button.points = cocos.text.Label(
+                                "Points available : " + str(player_one.allocatable_points), font_size=15,
+                                anchor_x="center")
+                            mainL.stats_button.points.position = mainL.stats_button.overlay.position[0], \
+                                                                 mainL.stats_button.overlay.position[1] - 180
+                            mainL.stats_button.add(mainL.stats_button.points)
+
+                        elif self.modify == mainL.stats_button.strength:
+                            mainL.stats_button.strength.kill()
+                            player_one.strength += 0.5
+                            mainL.stats_button.strength = cocos.text.Label("Strength : " + str(player_one.strength),
+                                                                           font_size=15, anchor_x="center")
+                            mainL.stats_button.strength.position = mainL.stats_button.overlay.position[0], \
+                                                                   mainL.stats_button.overlay.position[1] - 20
+                            mainL.stats_button.add(mainL.stats_button.strength)
+                            self.modify = mainL.stats_button.strength
+                            player_one.allocatable_points -= 1
+                            mainL.stats_button.points.kill()
+                            mainL.stats_button.points = cocos.text.Label(
+                                "Points available : " + str(player_one.allocatable_points), font_size=15,
+                                anchor_x="center")
+                            mainL.stats_button.points.position = mainL.stats_button.overlay.position[0], \
+                                                                 mainL.stats_button.overlay.position[1] - 180
+                            mainL.stats_button.add(mainL.stats_button.points)
+
+                        elif self.modify == mainL.stats_button.speed:
+                            mainL.stats_button.speed.kill()
+                            player_one.speed += 5
+                            mainL.stats_button.speed = cocos.text.Label("Speed : " + str(float(player_one.speed / 100)),
+                                                                        font_size=15, anchor_x="center")
+                            mainL.stats_button.speed.position = mainL.stats_button.overlay.position[0], \
+                                                                mainL.stats_button.overlay.position[1] - 100
+                            mainL.stats_button.add(mainL.stats_button.speed)
+                            self.modify = mainL.stats_button.speed
+                            player_one.allocatable_points -= 1
+                            mainL.stats_button.points.kill()
+                            mainL.stats_button.points = cocos.text.Label(
+                                "Points available : " + str(player_one.allocatable_points), font_size=15,
+                                anchor_x="center")
+                            mainL.stats_button.points.position = mainL.stats_button.overlay.position[0], \
+                                                                 mainL.stats_button.overlay.position[1] - 180
+                            mainL.stats_button.add(mainL.stats_button.points)
+                if self.type == "purchase":
+                    if len(player_one.inventory) >= 8:
+                        if not mainL.current:
+                            self.lack = cocos.text.Label(
+                                "Inventory full.", font_size=20,
+                                anchor_x="center")
+                            self.lack.position = mainL.store.overlay.position[0], mainL.store.overlay.position[1] + 250
+                            mainL.current = True
+                            mainL.store.add(self.lack)
+                        if self.attribute == 1:
+                            scroller.schedule_interval(mainL.store.buy1.wait_remove, 2)
+                        if self.attribute == 2:
+                            scroller.schedule_interval(mainL.store.buy2.wait_remove, 2)
+                        if self.attribute == 3:
+                            scroller.schedule_interval(mainL.store.buy3.wait_remove, 2)
+                    elif player_one.gold >= self.modify.cost:
+                        if self.text == "Potion":
+                            player_one.gold -= self.modify.cost
+                            player_one.inventory.append(self.modify.name)
+                            player_one.hidden_inventory.append(self.modify)
+                        else:
+                            player_one.gold -= self.modify.cost
+                            try:
+                                player_one.unequip(player_one.hidden_equipped[self.text])
+                            except AttributeError:
+                                pass
+                            player_one.equipped[self.text] = self.modify.name
+                            player_one.hidden_equipped[self.text] = self.modify
+                            player_one.equip(self.modify)
+                            if self.attribute == 1:
+                                mainL.store.buy1.kill()
+                            if self.attribute == 2:
+                                mainL.store.buy2.kill()
+                            if self.attribute == 3:
+                                mainL.store.buy3.kill()
+                    else:
+                        if not mainL.current:
+                            self.lack = cocos.text.Label(
+                                "Not enough money.", font_size=20,
+                                anchor_x="center")
+                            self.lack.position = mainL.store.overlay.position[0], mainL.store.overlay.position[1] + 250
+                            mainL.current = True
+                            mainL.store.add(self.lack)
+                            if self.attribute == 1:
+                                scroller.schedule_interval(mainL.store.buy1.wait_remove, 2)
+                            if self.attribute == 2:
+                                scroller.schedule_interval(mainL.store.buy2.wait_remove, 2)
+                            if self.attribute == 3:
+                                scroller.schedule_interval(mainL.store.buy3.wait_remove, 2)
+                if self.type == "inventory":
+                    if mainL.inventoryOpen == 0:
+                        mainL.inventoryOpen = 1
+                        over = pyglet.image.load("sources/blackbox.jpg")
+                        self.overlay = cocos.sprite.Sprite(over)
+                        self.overlay.position = int(cocos.director.director.get_window_size()[0]) / 2, int(
+                            cocos.director.director.get_window_size()[1]) / 2
+                        self.overlay.opacity = 170
+                        self.overlay.scale_x = 0.5
+                        self.overlay.scale_y = 0.85
+                        self.title = cocos.text.Label("Inventory", font_size=20, anchor_x="center", color=(255, 255,
+                                                                                                           255, 255))
+                        self.title.position = self.overlay.position[0], self.overlay.position[1] + 170
+                        self.inventory = cocos.text.Label("Inventory : " + str(player_one.inventory).replace("[", "")
+                                                          .replace("]", "").replace("'", ""), font_size=20,
+                                                          anchor_x="center", color=(255, 255, 255, 255), align="center",
+                                                          width=self.overlay.width, multiline=True)
+                        self.inventory.position = self.overlay.position[0], self.overlay.position[1] + 70
+                        self.head = cocos.text.Label("Head : " + str(player_one.equipped["Head"]), font_size=20,
+                                                          anchor_x="center", color=(255, 255, 255, 255))
+                        self.chest = cocos.text.Label("Chest : " + str(player_one.equipped["Chest"]), font_size=20,
+                                                          anchor_x="center", color=(255, 255, 255, 255))
+                        self.sword = cocos.text.Label("Sword : " + str(player_one.equipped["Sword"]), font_size=20,
+                                                          anchor_x="center", color=(255, 255, 255, 255))
+                        self.shield = cocos.text.Label("Shield : " + str(player_one.equipped["Shield"]), font_size=20,
+                                                          anchor_x="center", color=(255, 255, 255, 255))
+                        self.head.position = self.overlay.position[0], self.overlay.position[1] - 70
+                        self.chest.position = self.overlay.position[0], self.overlay.position[1] - 110
+                        self.sword.position = self.overlay.position[0], self.overlay.position[1] - 150
+                        self.shield.position = self.overlay.position[0], self.overlay.position[1] - 190
+                        self.add(self.overlay)
+                        self.add(self.title)
+                        self.add(self.head)
+                        self.add(self.chest)
+                        self.add(self.sword)
+                        self.add(self.shield)
+                        self.add(self.inventory)
+                    elif mainL.inventoryOpen == 1:
+                        mainL.inventoryOpen = 0
+                        mainL.inventory_button.overlay.kill()
+                        mainL.inventory_button.title.kill()
+                        mainL.inventory_button.inventory.kill()
+                        mainL.inventory_button.chest.kill()
+                        mainL.inventory_button.sword.kill()
+                        mainL.inventory_button.shield.kill()
+                        mainL.inventory_button.head.kill()
+
+    def wait_remove(self, dt):
+        """
+        Removes the "Not enough money" message after two seconds has passed.
+        :param dt:   Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        mainL.current = False
+        if self.attribute == 1:
+            mainL.store.remove(mainL.store.buy1.lack)
+            scroller.unschedule(mainL.store.buy1.wait_remove)
+        if self.attribute == 2:
+            mainL.store.remove(mainL.store.buy2.lack)
+            scroller.unschedule(mainL.store.buy2.wait_remove)
+        if self.attribute == 3:
+            mainL.store.remove(mainL.store.buy3.lack)
+            scroller.unschedule(mainL.store.buy3.wait_remove)
+
+    def on_mouse_motion(self, x, y, dx, dy):
+        """
+        If the mouse is moved over the button, the cursor becomes a pointing hand.
+        :param x: Current X co-ordinate of the mouse.
+        :param y: Current Y co-ordinate of the mouse.
+        :param dx: Imported through pyglet, required for the function to run.
+        :param dy: Imported through pyglet, required for the function to run.
+        """
+        if self.mouse_on_sprite(x, y):
+            cursor = cocos.director.director.window.get_system_mouse_cursor(cocos.director.director.window.CURSOR_HAND)
+            cocos.director.director.window.set_mouse_cursor(cursor)
+        else:
+            cursor = cocos.director.director.window.get_system_mouse_cursor(
+                cocos.director.director.window.CURSOR_DEFAULT)
+            cocos.director.director.window.set_mouse_cursor(cursor)
+
+
+class mapLayer(cocos.layer.Layer):
+    def __init__(self):
+        super().__init__()
+        m_image = pyglet.image.load("sources/map.png")
+        self.m_sprite = cocos.sprite.Sprite(m_image)
+        self.m_sprite.scale = 1
+        self.m_sprite.position = (self.m_sprite.width/2, self.m_sprite.height/2)
+        self.add(self.m_sprite)
+
+
+class playerHealth(cocos.text.Label):
+    """
+    Player health bar label at the top left.
+    Contains functions: updateLabel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counter = cocos.text.Label(("Health - :  " + str(player_one.health) + " / " + str(player_one.max_health)))
+        self.counter.position = 0, 580
+        self.add(self.counter)
+
+    def updateLabel(self, dt):
+        """
+        Schedule_interval to update to show the current health.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.counter.kill()
+        if player_one.health < 0:
+            reply = str(0)
+        else:
+            reply = str(player_one.health)
+        self.counter = cocos.text.Label(("Health - :  " + reply + " / " + str(player_one.max_health)))
+        self.counter.position = 0, 580
+        self.add(self.counter)
+
+
+class location(cocos.text.Label):
+    """
+    Shows current player location in bottom left.
+    Contains functions: updateLabel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.current_1 = "H8"
+        self.counter = cocos.text.Label(("Location - :  " + self.current_1))
+        self.counter.position = 20, 20
+        self.add(self.counter)
+
+    def updateLabel(self, dt):
+        """
+        Schedule_interval to update to show the current location.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        if mainL.transport.next_item[8] is None:
+            self.current_1 = "H8"
+        else:
+            self.current_1 = mainL.transport.next_item[8]
+        self.counter.kill()
+        self.counter = cocos.text.Label(("Location - :  " + self.current_1))
+        self.counter.position = 20 + mainL.map.m_sprite.width, 20
+        self.add(self.counter)
+
+
+class playerMoney(cocos.text.Label):
+    """
+    Class that displays a label in the top right displaying the players money.
+    Contains functions: updateLabel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counter = cocos.text.Label(("Money - :  " + str(player_one.gold)))
+        self.counter.position = 200, 580
+        self.add(self.counter)
+
+    def updateLabel(self, dt):
+        """
+        Refreshes the label else it would only show the beginning amount of gold.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.counter.kill()
+        if player_one.gold < 0:
+            reply = str(0)
+        else:
+            reply = str(player_one.gold)
+        self.counter = cocos.text.Label(("Money - :  " + reply))
+        self.counter.position = 200, 580
+        self.add(self.counter)
+
+
+class playerMana(cocos.text.Label):
+    """
+    Player mana bar label at the top left.
+    Contains functions: updateLabel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counter = cocos.text.Label(("Mana - :  " + str(player_one.mana) + " / " + str(player_one.max_mana)))
+        self.counter.position = 320, 580
+        self.add(self.counter)
+
+    def updateLabel(self, dt):
+        """
+        Schedule_interval to update to show the current mana.
+        :param dt: Delta time, necessary for schedule_intervals, used to define how often the function is run.
+        """
+        self.counter.kill()
+        if player_one.mana < 0:
+            reply = str(0)
+        else:
+            reply = str(player_one.mana)
+        self.counter = cocos.text.Label(("Mana - :  " + reply + " / " + str(player_one.max_mana)))
+        self.counter.position = 320, 580
+        self.add(self.counter)
+
+
+class mainScene(cocos.scene.Scene):
+    """
+     Main scene that holds the game excluding the start and pause menus.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add(scroller)
+        self.add(mainL)
+
+
+class intro(cocos.scene.Scene):
+    """
+    Opening scene that contains the main menu.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add(mainMenu())
+
+
+class SceneControlLayer(cocos.layer.Layer):
+    """
+    Layer that controls which scene is currently displayed.
+    Contains functions: on_key_press
+    """
+    is_event_handler = True
+    space_counter = 0
+    active_scene = None
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def on_key_press(symbol, modifiers):
+        """
+        Inbuilt in pyglet, allows space to be pressed on the main menu to start a new game, not particularly important,
+        but nifty.
+        :param symbol: Button that is being pressed to activate the function.
+        :param modifiers: Button that is being pressed to modify the result of the button press, e.g. Caps Lock.
+        """
+        if symbol == pyglet.window.key.SPACE and SceneControlLayer.space_counter == 0:
+            SceneControlLayer.active_scene = mainScene()
+            cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+            SceneControlLayer.space_counter = 1
+
+
+class mainMenu(cocos.menu.Menu):
+    """
+    Creates the menu that is used for intro.
+    Contains functions: on_new_game, load_game, quit.
+    """
+
+    def __init__(self):
+        super().__init__("The Dungeon")
+
+        items = [cocos.menu.MenuItem("New Game", self.on_new_game), cocos.menu.MenuItem("Load Game", self.load_game),
+                 cocos.menu.MenuItem("Quit", self.quit)]
+        items[0].y = 50
+        items[1].y = 25
+        # Creates the menu and has the items shake when hovered over.
+        self.create_menu(items, cocos.menu.shake(), cocos.menu.shake_back())
+
+    @staticmethod
+    def on_new_game():
+        """
+        When a new game is pressed, switches the current scene to the main game.
+        """
+        scroller.schedule_interval(mainL.autoSave, 60)
+        SceneControlLayer.active_scene = mainScene()
+        cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+
+    @staticmethod
+    def load_game():
+        """
+        Loads a previously saved file and applies the read attributes to the player.
+        """
+        savefile = open("sources/savefile.txt")
+        items = savefile.readlines()
+        items_new = []
+        for item in items:
+            temp = item.replace('\n', '')
+            items_new.append(temp)
+        player_one.max_health = float(items_new[0])
+        player_one.health = float(items_new[1])
+        player_one.strength = float(items_new[2])
+        player_one.intelligence = float(items_new[3])
+        player_one.speed = float(items_new[4])
+        player_one.allocatable_points = int(items_new[5])
+        player_one.exp = int(items_new[6])
+        player_one.level = int(items_new[7])
+        player_one.gold = int(items_new[8])
+        SceneControlLayer.active_scene = mainScene()
+        cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+        savefile.close()
+
+    @staticmethod
+    def quit():
+        """
+        Closes the window.
+        """
+        cocos.director.director.window.close()
+
+
+class pauseMenu(cocos.menu.Menu):
+    """
+    Creates the pause menu.
+    Contains functions: on_save_game, load_game, ret, settings, quit.
+    """
+
+    def __init__(self):
+        super().__init__("Pause Menu")
+
+        self.items = []
+        self.items.append(cocos.menu.MenuItem("Save Game", self.on_save_game))
+        self.items.append(cocos.menu.MenuItem("Load Game", self.load_game))
+        self.items.append(cocos.menu.MenuItem("Settings", self.settings))
+        self.items.append(cocos.menu.MenuItem("Help", self.help))
+        self.items.append(cocos.menu.MenuItem("Return", self.ret))
+        self.items.append(cocos.menu.MenuItem("Quit", self.quit))
+        self.items[0].y = 50
+        self.items[1].y = 25
+        self.items[3].y = -25
+        self.items[4].y = -50
+        self.items[5].y = -75
+        # Creates the pause menu and allows items to shake.
+        self.create_menu(self.items, cocos.menu.shake(), cocos.menu.shake_back())
+
+    @staticmethod
+    def on_save_game():
+        """
+        Saves game to savefile.txt.
+        """
+        savefile = open("sources/savefile.txt", mode='w')
+        savefile.writelines([str(player_one.max_health), "\n" + str(player_one.health), "\n" + str(player_one.strength),
+                             "\n" + str(player_one.intelligence), "\n" + str(player_one.speed),
+                             "\n" + str(player_one.allocatable_points), "\n" + str(player_one.exp),
+                             "\n" + str(player_one.level), "\n" + str(player_one.gold)])
+        savefile.close()
+
+    @staticmethod
+    def load_game():
+        """
+        Loads game from savefile.txt, then uses loaded attributes to apply to sprite attributes.
+        """
+        savefile = open("sources/savefile.txt")
+        items = savefile.readlines()
+        items_new = []
+        for item in items:
+            temp = item.replace('\n', '')
+            items_new.append(temp)
+        player_one.max_health = float(items_new[0])
+        player_one.health = float(items_new[1])
+        player_one.strength = float(items_new[2])
+        player_one.intelligence = float(items_new[3])
+        player_one.speed = float(items_new[4])
+        player_one.allocatable_points = int(items_new[5])
+        player_one.exp = int(items_new[6])
+        player_one.level = int(items_new[7])
+        player_one.gold = int(items_new[8])
+        SceneControlLayer.active_scene = mainScene()
+        cocos.director.director.replace(SlideInLTransition(SceneControlLayer.active_scene, duration=2))
+        savefile.close()
+
+    @staticmethod
+    def ret():
+        """
+        Returns player to the main scene.
+        """
+        SceneControlLayer.active_scene = mainScene()
+        cocos.director.director.replace(SlideInLTransition(SceneControlLayer.active_scene, duration=2))
+
+    @staticmethod
+    def settings():
+        """
+        Opens the settings menu by switching to the settingsScene.
+        """
+        SceneControlLayer.active_scene = settingsScene()
+        cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+
+    @staticmethod
+    def help():
+        """
+        Opens the health menu
+        """
+        SceneControlLayer.active_scene = helpScene()
+        cocos.director.director.replace(SlideInRTransition(SceneControlLayer.active_scene, duration=2))
+
+    @staticmethod
+    def quit():
+        """
+        Closes the window.
+        """
+        cocos.director.director.window.close()
+
+
+class settingsMenu(cocos.menu.Menu):
+    """
+    Defines the settings menu, currently only contains difficulty settings.
+    Contains functions: ret, difficulty, resetEnDiff.
+    """
+
+    def __init__(self):
+        super().__init__("Settings")
+
+        self.items = []
+        self.difficulties = ["Easy", "Normal", "Hard"]
+        self.items.append(
+            cocos.menu.MultipleMenuItem("Difficulty : ", self.difficulty, self.difficulties, mainL.diffStore))
+        self.items.append(cocos.menu.MenuItem("Return", self.ret))
+        self.multi = 2
+        self.items[0].y = 25
+        self.items[1].y = 0
+        # Creates the pause menu and allows items to shake.
+        self.create_menu(self.items, cocos.menu.shake(), cocos.menu.shake_back())
+
+    @staticmethod
+    def ret():
+        """
+        Returns the player to the main scene.
+        """
+        SceneControlLayer.active_scene = pauseScene()
+        cocos.director.director.replace(SlideInLTransition(SceneControlLayer.active_scene, duration=2))
+
+    def difficulty(self, item):
+        """
+        Changes the difficulty by checking the text and then applying the appropriate multiplier, if it is the last
+        item, loops to the start.
+        """
+        if self.items[0].idx == 2:
+            self.multi = 3
+            mainL.multi = 3
+            self.items[0].idx = -1
+            mainL.diffStore = 2
+            self.reset_en_diff(self.multi)
+        elif self.items[0].idx == 1:
+            self.multi = 2
+            mainL.multi = 2
+            self.reset_en_diff(self.multi)
+            mainL.diffStore = 1
+        else:
+            self.multi = 1
+            mainL.multi = 1
+            self.reset_en_diff(self.multi)
+            mainL.diffStore = 0
+
+    @staticmethod
+    def reset_en_diff(multi):
+        """
+        Resets the enemy difficulty by removing all of them and then re-spawns them with the health multiplied by the
+        multiplier.
+        :param multi: Parameter from which enemy health is multiplied.
+        """
+        if current_item[0]:
+            for item in mainL.scorpions:
+                if item.alive:
+                    item.kill()
+                scroller.unschedule(item.mons_health)
+                scroller.unschedule(item.do_damage)
+        if current_item[0]:
+            for item in mainL.scorpions:
+                item.mon.position = random.randint(50, Center.px_width - 50), \
+                                    random.randint(50, Center.px_height - 50)
+                item.mon.rotation = random.randint(0, 360)
+                item.alive = True
+                temp = item.attributes.max_health
+                temp *= multi
+                item.attributes.health = temp
+                scroller.add(item, 1)
+                scroller.schedule_interval(item.mons_health, 1 / 60)
+                scroller.schedule_interval(item.do_damage, 1.5)
+
+
+class helpMenu(cocos.menu.Menu):
+    """
+    Defines the help menu, contains information on the game.
+    Contains functions: ret.
+    """
+
+    def __init__(self):
+        super().__init__("Help")
+
+        self.items = []
+        self.items.append(cocos.menu.MenuItem("Return", self.ret))
+        self.items[0].y = -100
+        # Creates the help menu and allows items to shake.
+        self.create_menu(self.items, cocos.menu.shake(), cocos.menu.shake_back())
+
+    @staticmethod
+    def ret():
+        """
+        Returns the player to the pause scene.
+        """
+        SceneControlLayer.active_scene = pauseScene()
+        cocos.director.director.replace(SlideInLTransition(SceneControlLayer.active_scene, duration=2))
+
+
+class helpBox(cocos.text.Label):
+    """
+    Text on help menu.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.helpText = cocos.text.Label(("Press W, A, S and D for movement." + "\n"
+                                     + "Press space for magic attacks, this drains mana." + "\n"
+                                     + "Press E for melee attacks." + "\n"
+                                     + "Press P to use potions." + "\n"
+                                     + "Gain EXP by defeating enemies, once you level up, you will get an attribute point." + "\n"
+                                     + "Spend your attribute points on the stats screen." + "\n"
+                                     + "A travelling trader will occasionally appear, collect gold to spend it there, or head back to H8." + "\n"
+                                     + "It is recommended that you stick around to fight scorpions, before heading east," + "\n"
+                                     + "then west, south and finally north."
+                                     + " At the top of the map is the boss, defeat it to win the game.")
+                                         , multiline=True
+                                         , width=1000
+                                         , anchor_x="center"
+                                         , anchor_y="center"
+                                         , align="center"
+                                         , font_size=14)
+        self.helpText.position = 500, 350
+        self.add(self.helpText)
+
+
+class helpSign(cocos.text.Label):
+    """
+    Player health bar label at the top left.
+    Contains functions: updateLabel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counter = cocos.text.Label(" ^^^ " + "\n" + "Click Here for help")
+        self.counter.position = 0, 480
+        self.add(self.counter)
+        self.opened = False
+
+
+class helpBoxLayer(cocos.layer.Layer):
+    """
+    Layer for the help box, so that it can be put in the scene.
+    """
+    def __init__(self):
+        super().__init__()
+        self.hb = helpBox()
+        self.add(self.hb)
+
+
+class helpScene(cocos.scene.Scene):
+    """
+    Defines the scene that contains the help menu.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add(helpMenu())
+        self.add(hbl)
+
+
+class settingsScene(cocos.scene.Scene):
+    """
+    Defines the scene that contains the settings menu.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add(settingsMenu())
+
+
+class pauseScene(cocos.scene.Scene):
+    """
+    Defines the scene containing the pause menu.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add(pauseMenu())
+
+
+if __name__ == "__main__":
+    # Defines window.
+    cocos.director.director.init(height=600, width=1000, resizable=True, autoscale=True)
+    cocos.director.director.window.pop_handlers()
+    Center = bg("sources/Center.tmx")
+    N = bg("sources/N.tmx")
+    S = bg("sources/S.tmx")
+    E = bg("sources/E.tmx")
+    W = bg("sources/W.tmx")
+    NSEW = bg("sources/NSEW.tmx")
+    NSE = bg("sources/NSE.tmx")
+    NSW = bg("sources/NSW.tmx")
+    NEW = bg("sources/NEW.tmx")
+    SEW = bg("sources/SEW.tmx")
+    NS = bg("sources/NS.tmx")
+    EW = bg("sources/EW.tmx")
+    NE = bg("sources/NE.tmx")
+    SE = bg("sources/SE.tmx")
+    SW = bg("sources/SW.tmx")
+    NW = bg("sources/NW.tmx")
+
+    # Keyboard handler.
+    keyboard = pyglet.window.key.KeyStateHandler()
+    cocos.director.director.window.push_handlers(keyboard)
+    # Adds into scroller.
+    hbl = helpBoxLayer()
+    scroller = cocos.layer.ScrollingManager()
+    # Layer dictionary is text heavy currently as it was efficient when the game was smaller, however I
+    # would like to shrink this now that it is larger, the areas are named with a grid system, so with this in mind,
+    # it should not be hard.
+    #                                       N     S     E     W
+    layer_dictionary = {"B8": [True, 2, E, None, None, "C8", None, 2, "B8"],
+                        "C7": [True, 2, SE, None, "C8", "D7", None, 2, "C7"],
+                        "C8": [True, 2, NSE, "C7", "C9", "D8", None, 2, "C8"],
+                        "C9": [True, 2, NE, "C8", None, "D9", None, 2, "C9"],
+                        "D7": [True, 2, SW, None, "D8", None, "C7", 2, "D7"],
+                        "D8": [True, 2, NSEW, "D7", "D9", "E8", "C8", 2, "D8"],
+                        "D9": [True, 2, NW, "D8", None, None, "C9", 2, "D9"],
+                        "E8": [True, 2, EW, None, None, "F8", "D8", 2, "E8"],
+                        "F8": [True, 2, EW, None, None, "G8", "E8", 2, "F8"],
+                        "G7": [True, 2, SE, None, "G8", "H7", None, 1, "G7"],
+                        "G8": [True, 2, NSEW, "G7", "G9", "H8", "F8", 1, "G8"],
+                        "G9": [True, 2, NE, "G8", None, "H9", None, 1, "G9"],
+                        "G12": [True, 2, SE, None, "G13", "H12", None, 4, "G12"],
+                        "G13": [True, 2, NSE, "G12", "G14", "H13", None, 4, "G13"],
+                        "G14": [True, 2, NE, "G13", None, "H14", None, 4, "G14"],
+                        "H2": [True, 2, S, None, "H3", None, None, 6, "H2"],
+                        "H3": [True, 2, NS, "H2", "H4", None, None, 1, "H3"],
+                        "H4": [True, 2, NS, "H3", "H5", None, None, 1, "H4"],
+                        "H5": [True, 2, NS, "H4", "H6", None, None, 1, "H5"],
+                        "H6": [True, 2, NS, "H5", "H7", None, None, 1, "H6"],
+                        "H7": [True, 2, NSEW, "H6", "H8", "I7", "G7", 1, "H7"],
+                        "H8": [True, 2, Center, "H7", "H9", "I8", "G8", 1, "H8"],
+                        "H9": [True, 2, NSEW, "H8", "H10", "I9", "G9", 1, "H9"],
+                        "H10": [True, 2, NS, "H9", "H11", None, None, 4, "H10"],
+                        "H11": [True, 2, NS, "H10", "H12", None, None, 4, "H11"],
+                        "H12": [True, 2, NSEW, "H11", "H13", "I12", "G12", 4, "H12"],
+                        "H13": [True, 2, NSEW, "H12", "H14", "I13", "G13", 4, "H13"],
+                        "H14": [True, 2, NEW, "H13", None, "I14", "G14", 4, "H14"],
+                        "I7": [True, 2, SW, None, "I8", None, "H7", 1, "I7"],
+                        "I8": [True, 2, NSEW, "I7", "I9", "J8", "H8", 1, "I8"],
+                        "I9": [True, 2, NW, "I8", None, None, "H9", 1, "I9"],
+                        "I12": [True, 2, SW, None, "I13", None, "H12", 4, "I12"],
+                        "I13": [True, 2, NSW, "I12", "I14", None, "H13", 4, "I13"],
+                        "I14": [True, 2, NW, "I13", None, None, "H14", 4, "I14"],
+                        "J8": [True, 2, EW, None, None, "K8", "I8", 3, "J8"],
+                        "K8": [True, 2, EW, None, None, "L8", "J8", 3, "K8"],
+                        "L7": [True, 2, SE, None, "L8", "M7", None, 3, "L7"],
+                        "L8": [True, 2, NSEW, "L7", "L9", "M8", "K8", 3, "L8"],
+                        "L9": [True, 2, NE, "L8", None, "M9", None, 3, "L9"],
+                        "M7": [True, 2, SW, None, "M8", None, "L7", 3, "M7"],
+                        "M8": [True, 2, NSW, "M7", "M9", None, "L8", 3, "M8"],
+                        "M9": [True, 2, NW, "M8", None, None, "L9", 3, "M9"],
+                        "N8": [True, 2, W, None, None, None, "M8", 3, "N8"]
+                        }
+    current_item = layer_dictionary["H8"]
+    mainL = mainLayer()
+    current = defineLayer(current_item[0], current_item[1], current_item[2])
+    # Ensure they are ordered by level, last column, or it will miss them.
+    item_dictionary = [Item("Copper Sword", 0, 0, 1, 0, 10, "Sword", 1),
+                       Item("Copper Shield", 10, 0, 0, 0, 10, "Shield", 1),
+                       Item("Copper Helmet", 10, 0, 0, 0, 10, "Head", 1),
+                       Item("Copper Breastplate", 10, 0, 0, 0, 10, "Chest", 1),
+                       Item("Health Potion", 50, 0, 0, 0, 5, "Potion", 1),
+                       Item("Iron Sword", 0, 0, 2, 0, 20, "Sword", 5),
+                       Item("Iron Shield", 40, 0, 0, 0, 20, "Shield", 5),
+                       Item("Iron Helmet", 40, 0, 0, 0, 20, "Head", 5),
+                       Item("Iron Breastplate", 40, 0, 0, 0, 20, "Chest", 5),
+                       Item("Steel Sword", 0, 0, 4, 0, 50, "Sword", 10),
+                       Item("Steel Shield", 80, 0, 0, 0, 50, "Shield", 10),
+                       Item("Steel Helmet", 80, 0, 0, 0, 50, "Head", 10),
+                       Item("Steel Breastplate", 80, 0, 0, 0, 50, "Chest", 10)
+                       ]
+
+    scroller.add(mainL.transport)
+    scroller.add(mainL.storeImage, 2)
+    # Schedule intervals.
+    scroller.schedule_interval(mainL.update, 1 / 24)
+    scroller.schedule_interval(mainL.ph.updateLabel, 1 / 10)
+    scroller.schedule_interval(mainL.loc.updateLabel, 1 / 10)
+    scroller.schedule_interval(mainL.pma.updateLabel, 1 / 10)
+    scroller.schedule_interval(mainL.sprite.check_for_death, 1 / 5)
+    scroller.schedule_interval(mainL.checkForDeath, 1 / 5)
+    scroller.schedule_interval(mainL.sprite.level_up, 1 / 5)
+    scroller.schedule_interval(mainL.sprite.natural_regen, 0.8)
+    scroller.schedule_interval(mainL.sprite.mana_regen, 0.8)
+    scroller.schedule_interval(mainL.transport.move, 1 / 20)
+    scroller.schedule_interval(mainL.sprite.set_legs, 1 / 60)
+    scroller.schedule_interval(mainL.pm.updateLabel, 1 / 10)
+    scroller.schedule_interval(mainL.store.check_for_store, 1 / 10)
+    # Has intro be the active scene then runs it.
+    SceneControlLayer.active_scene = intro()
+    cocos.director.director.run(SceneControlLayer.active_scene)
